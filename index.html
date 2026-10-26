@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minesweeper</title>
+  <style>
+    :root {
+      --bg-color: #f4f4f9;
+      --text-color: #333333;
+      --board-bg: #cccccc;
+      --cell-unrevealed: #e2e2e2;
+      --cell-hover: #d0d0d0;
+      --cell-revealed: #ffffff;
+      --accent-color: #4a90e2;
+      --btn-bg: #ffffff;
+      --btn-border: #bbbbbb;
+    }
+
+    body.theme-pink {
+      --bg-color: #fff0f5;
+      --text-color: #4a3b40;
+      --board-bg: #f3c6d3;
+      --cell-unrevealed: #fcddec;
+      --cell-hover: #f7c5dd;
+      --cell-revealed: #ffffff;
+      --accent-color: #ff69b4;
+      --btn-bg: #ffffff;
+      --btn-border: #f3c6d3;
+    }
+
+    body.theme-minimal {
+      --bg-color: #ffffff;
+      --text-color: #1a1a1a;
+      --board-bg: #e5e7eb;
+      --cell-unrevealed: #f3f4f6;
+      --cell-hover: #e5e7eb;
+      --cell-revealed: #ffffff;
+      --accent-color: #2563eb;
+      --btn-bg: #ffffff;
+      --btn-border: #d1d5db;
+    }
+
+    body.theme-midnight {
+      --bg-color: #0f172a;
+      --text-color: #f8fafc;
+      --board-bg: #334155;
+      --cell-unrevealed: #1e293b;
+      --cell-hover: #475569;
+      --cell-revealed: #0f172a;
+      --accent-color: #38bdf8;
+      --btn-bg: #1e293b;
+      --btn-border: #475569;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      text-align: center;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 20px;
+      user-select: none;
+      transition: background-color 0.2s, color 0.2s;
+    }
+
+    #controls {
+      margin-bottom: 15px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 15px;
+    }
+
+    #stats-bar {
+      display: flex;
+      justify-content: center;
+      gap: 25px;
+      font-weight: 600;
+      font-size: 16px;
+      margin-bottom: 15px;
+    }
+
+    #board-container {
+      display: flex;
+      justify-content: center;
+      overflow-x: auto;
+    }
+
+    #board {
+      display: grid;
+      gap: 2px;
+      background-color: var(--board-bg);
+      padding: 4px;
+      border-radius: 8px;
+    }
+
+    .cell {
+      background-color: var(--cell-unrevealed);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 14px;
+      transition: background-color 0.1s;
+    }
+    .cell:hover:not(.revealed) { background-color: var(--cell-hover); }
+    .cell.revealed { background-color: var(--cell-revealed); }
+    
+    /* White background for all flagged cells */
+    .cell.flagged, body.theme-midnight .cell.flagged { 
+      background-color: #ffffff; 
+    }
+    
+    .cell.mine { background-color: #ff4d4d; }
+    .cell.game-over-mine { background-color: #fca5a5; }
+
+    .flag-img {
+      width: 75%;
+      height: 75%;
+      object-fit: contain;
+      pointer-events: none;
+    }
+
+    .c-1 { color: #2563eb; }
+    .c-2 { color: #16a34a; }
+    .c-3 { color: #dc2626; }
+    .c-4 { color: #9333ea; }
+    .c-5 { color: #ea580c; }
+    .c-6 { color: #0891b2; }
+    .c-7 { color: #1f2937; }
+    .c-8 { color: #4b5563; }
+    
+    body.theme-midnight .c-1 { color: #60a5fa; }
+    body.theme-midnight .c-2 { color: #4ade80; }
+    body.theme-midnight .c-3 { color: #f87171; }
+    body.theme-midnight .c-7 { color: #f3f4f6; }
+
+    button, select, input[type="text"] {
+      padding: 8px 14px;
+      font-size: 14px;
+      cursor: pointer;
+      border-radius: 6px;
+      border: 1px solid var(--btn-border);
+      background-color: var(--btn-bg);
+      color: var(--text-color);
+      font-weight: 500;
+      outline: none;
+    }
+
+    button:hover, select:hover {
+      border-color: var(--accent-color);
+    }
+
+    #status-msg {
+      margin-top: 10px;
+      font-weight: bold;
+      min-height: 24px;
+    }
+
+    #settings-btn {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      font-size: 20px;
+      padding: 8px 12px;
+      z-index: 100;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+
+    #side-panel {
+      position: fixed;
+      top: 0;
+      right: -360px;
+      width: 340px;
+      height: 100%;
+      background-color: var(--bg-color);
+      box-shadow: -4px 0 15px rgba(0,0,0,0.25);
+      transition: right 0.3s ease;
+      z-index: 200;
+      padding: 24px;
+      text-align: left;
+      overflow-y: auto;
+    }
+    #side-panel.open { right: 0; }
+    
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--board-bg);
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+    }
+
+    .scoreboard-box {
+      background-color: var(--cell-unrevealed);
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      border: 1px solid var(--btn-border);
+    }
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 6px 0;
+      font-size: 14px;
+    }
+    .stat-val { font-weight: bold; }
+    
+    .option-group { margin-bottom: 20px; }
+    .option-group label { display: block; font-weight: bold; margin-bottom: 8px; }
+    
+    .flag-picker {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .flag-option {
+      border: 2px solid var(--btn-border);
+      border-radius: 6px;
+      padding: 8px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 18px;
+      background-color: var(--btn-bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .flag-option.selected { border-color: var(--accent-color); background: rgba(74,144,226,0.15); }
+    .flag-option.locked { opacity: 0.4; cursor: not-allowed; }
+    .flag-req { font-size: 9px; margin-top: 4px; }
+
+    .custom-flag-container {
+      display: flex;
+      gap: 6px;
+    }
+    .custom-flag-container input {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <button id="settings-btn" onclick="toggleSettings()">⚙️</button>
+
+  <div id="side-panel">
+    <div class="panel-header">
+      <h2 style="margin:0;">Settings</h2>
+      <button onclick="toggleSettings()">✕</button>
+    </div>
+
+    <div class="scoreboard-box">
+      <div style="font-weight:bold; margin-bottom:8px; font-size:15px;">📊 Lifetime Stats</div>
+      <div class="stat-row">
+        <span>Total Wins:</span>
+        <span class="stat-val" id="total-wins">0</span>
+      </div>
+      <div class="stat-row">
+        <span>Cells Revealed:</span>
+        <span class="stat-val" id="total-cells">0</span>
+      </div>
+    </div>
+
+    <div class="option-group">
+      <label for="theme-select">Board Theme</label>
+      <select id="theme-select" style="width: 100%;" onchange="changeTheme(this.value)">
+        <option value="classic">Classic Gray</option>
+        <option value="pink">Pastel Pink</option>
+        <option value="minimal">Minimal Light</option>
+        <option value="midnight">Midnight Dark</option>
+      </select>
+    </div>
+
+    <div class="option-group">
+      <label>Unlocked Flags</label>
+      <div class="flag-picker" id="flag-picker"></div>
+
+      <label style="font-size: 12px; margin-top: 10px;">Custom Image Flag (URL)</label>
+      <div class="custom-flag-container">
+        <input type="text" id="custom-flag-url" placeholder="https://..." />
+        <button onclick="setCustomFlag()">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <h1>Minesweeper</h1>
+
+  <div id="controls">
+    <label for="difficulty" style="font-weight:bold;">Difficulty: </label>
+    <select id="difficulty" onchange="resetGame()">
+      <option value="easy">Easy (9x9, 10 Mines)</option>
+      <option value="medium" selected>Medium (16x16, 40 Mines)</option>
+      <option value="hard">Hard (30x16, 99 Mines)</option>
+      <option value="expert">Expert (30x20, 145 Mines)</option>
+    </select>
+    <button onclick="resetGame()">New Game</button>
+  </div>
+
+  <div id="stats-bar">
+    <div>Mines: <span id="mine-count">40</span></div>
+    <div>Time: <span id="timer">000</span>s</div>
+    <div>Best: <span id="best-time">--</span></div>
+  </div>
+  
+  <div id="status-msg"></div>
+
+  <div id="board-container">
+    <div id="board"></div>
+  </div>
+
+  <script>
+    const DIFFICULTIES = {
+      easy:   { rows: 9,  cols: 9,  mines: 10, size: 35 },
+      medium: { rows: 16, cols: 16, mines: 40, size: 30 },
+      hard:   { rows: 16, cols: 30, mines: 99, size: 26 },
+      expert: { rows: 20, cols: 30, mines: 145, size: 24 }
+    };
+
+    const FLAGS = [
+      { icon: '🚩', type: 'win', req: 0, name: 'Standard' },
+      { icon: '🎯', type: 'win', req: 5, name: 'Target' },
+      { icon: '☣️', type: 'win', req: 10, name: 'Hazard' },
+      { icon: '👑', type: 'win', req: 50, name: 'Crown' },
+      { icon: '💎', type: 'cell', req: 500, name: 'Gem' },
+      { icon: '⚡', type: 'cell', req: 2500, name: 'Spark' },
+      { icon: '🔥', type: 'cell', req: 10000, name: 'Fire' }
+    ];
+
+    let ROWS, COLS, MINES, CELL_SIZE;
+    let board = [];
+    let gameOver = false;
+    let hoveredCell = null;
+    let flagsPlaced = 0;
+    let firstClick = true;
+
+    let timerInterval = null;
+    let secondsElapsed = 0;
+    let selectedFlag = localStorage.getItem('minesweeper_flag') || '🚩';
+
+    function startTimer() {
+      clearInterval(timerInterval);
+      secondsElapsed = 0;
+      updateTimerDisplay();
+      timerInterval = setInterval(() => {
+        secondsElapsed++;
+        if (secondsElapsed > 999) secondsElapsed = 999;
+        updateTimerDisplay();
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+    }
+
+    function updateTimerDisplay() {
+      document.getElementById('timer').textContent = String(secondsElapsed).padStart(3, '0');
+    }
+
+    function updateBestTimeDisplay() {
+      const mode = document.getElementById('difficulty').value;
+      const best = localStorage.getItem(`minesweeper_best_${mode}`);
+      document.getElementById('best-time').textContent = best ? `${best}s` : '--';
+    }
+
+    function initBoard() {
+      stopTimer();
+      secondsElapsed = 0;
+      updateTimerDisplay();
+      updateBestTimeDisplay();
+      loadSettings();
+
+      const mode = document.getElementById('difficulty').value;
+      const config = DIFFICULTIES[mode];
+      
+      ROWS = config.rows;
+      COLS = config.cols;
+      MINES = config.mines;
+      CELL_SIZE = config.size;
+
+      const boardElement = document.getElementById('board');
+      boardElement.innerHTML = '';
+      
+      boardElement.style.gridTemplateColumns = `repeat(${COLS}, ${CELL_SIZE}px)`;
+      boardElement.style.gridTemplateRows = `repeat(${ROWS}, ${CELL_SIZE}px)`;
+
+      board = [];
+      gameOver = false;
+      firstClick = true;
+      flagsPlaced = 0;
+      document.getElementById('status-msg').textContent = '';
+      updateMineCounter();
+
+      for (let r = 0; r < ROWS; r++) {
+        board[r] = [];
+        for (let c = 0; c < COLS; c++) {
+          board[r][c] = { r, c, mine: false, revealed: false, flagged: false, count: 0 };
+        }
+      }
+
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const cellEl = document.createElement('div');
+          cellEl.className = 'cell';
+          cellEl.style.width = `${CELL_SIZE}px`;
+          cellEl.style.height = `${CELL_SIZE}px`;
+          cellEl.dataset.r = r;
+          cellEl.dataset.c = c;
+
+          cellEl.addEventListener('mouseenter', () => hoveredCell = { r, c });
+          cellEl.addEventListener('mouseleave', () => hoveredCell = null);
+          cellEl.addEventListener('click', () => handleClick(r, c));
+          cellEl.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            handleRightClick(r, c);
+          });
+
+          boardElement.appendChild(cellEl);
+        }
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && hoveredCell && !gameOver) {
+        e.preventDefault();
+        handleRightClick(hoveredCell.r, hoveredCell.c);
+      }
+    });
+
+    function populateMines(startR, startC) {
+      const safeZone = new Set();
+      safeZone.add(`${startR},${startC}`);
+      getNeighbors(startR, startC).forEach(n => safeZone.add(`${n.r},${n.c}`));
+
+      let placed = 0;
+      while (placed < MINES) {
+        let r = Math.floor(Math.random() * ROWS);
+        let c = Math.floor(Math.random() * COLS);
+        if (!board[r][c].mine && !safeZone.has(`${r},${c}`)) {
+          board[r][c].mine = true;
+          placed++;
+        }
+      }
+
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (!board[r][c].mine) {
+            board[r][c].count = getNeighbors(r, c).filter(n => n.mine).length;
+          }
+        }
+      }
+    }
+
+    function getNeighbors(r, c) {
+      const neighbors = [];
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          let nr = r + dr, nc = c + dc;
+          if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+            neighbors.push(board[nr][nc]);
+          }
+        }
+      }
+      return neighbors;
+    }
+
+    function handleClick(r, c) {
+      if (gameOver) return;
+
+      if (firstClick) {
+        populateMines(r, c);
+        firstClick = false;
+        startTimer();
+      }
+
+      const cell = board[r][c];
+      if (cell.flagged) return;
+
+      if (cell.revealed) {
+        if (cell.count > 0) {
+          const neighbors = getNeighbors(r, c);
+          const flagCount = neighbors.filter(n => n.flagged).length;
+          if (flagCount === cell.count) {
+            neighbors.forEach(n => {
+              if (!n.revealed && !n.flagged) revealCell(n.r, n.c);
+            });
+          }
+        }
+        return;
+      }
+
+      revealCell(r, c);
+    }
+
+    function revealCell(r, c) {
+      const cell = board[r][c];
+      if (cell.revealed || cell.flagged) return;
+
+      cell.revealed = true;
+      const el = getCellEl(r, c);
+      el.classList.add('revealed');
+
+      if (cell.mine) {
+        el.classList.add('mine');
+        el.textContent = '💣';
+        triggerGameOver(false);
+        return;
+      }
+
+      let totalCells = parseInt(localStorage.getItem('minesweeper_total_cells') || '0', 10) + 1;
+      localStorage.setItem('minesweeper_total_cells', totalCells);
+      updateScoreboardDisplays();
+
+      if (cell.count > 0) {
+        el.textContent = cell.count;
+        el.classList.add(`c-${cell.count}`);
+      } else {
+        getNeighbors(r, c).forEach(n => revealCell(n.r, n.c));
+      }
+
+      checkWinCondition();
+    }
+
+    function handleRightClick(r, c) {
+      if (gameOver) return;
+      const cell = board[r][c];
+      if (cell.revealed) return;
+
+      cell.flagged = !cell.flagged;
+      flagsPlaced += cell.flagged ? 1 : -1;
+      
+      const el = getCellEl(r, c);
+      el.classList.toggle('flagged', cell.flagged);
+      
+      if (cell.flagged) {
+        const isUrl = selectedFlag.startsWith('http://') || 
+                      selectedFlag.startsWith('https://') || 
+                      selectedFlag.startsWith('data:image/');
+
+        if (isUrl) {
+          el.innerHTML = '';
+          const img = document.createElement('img');
+          img.className = 'flag-img';
+          img.src = selectedFlag;
+          img.onerror = () => {
+            el.innerHTML = '';
+            el.textContent = '🚩';
+          };
+          el.appendChild(img);
+        } else {
+          el.textContent = selectedFlag;
+        }
+      } else {
+        el.innerHTML = '';
+      }
+
+      updateMineCounter();
+    }
+
+    function updateMineCounter() {
+      document.getElementById('mine-count').textContent = MINES - flagsPlaced;
+    }
+
+    function triggerGameOver(won) {
+      gameOver = true;
+      stopTimer();
+      const status = document.getElementById('status-msg');
+
+      if (won) {
+        const mode = document.getElementById('difficulty').value;
+        const currentBest = localStorage.getItem(`minesweeper_best_${mode}`);
+        let totalWins = parseInt(localStorage.getItem('minesweeper_total_wins') || '0', 10) + 1;
+        localStorage.setItem('minesweeper_total_wins', totalWins);
+        updateScoreboardDisplays();
+        
+        let newRecord = false;
+        if (!currentBest || secondsElapsed < parseInt(currentBest, 10)) {
+          localStorage.setItem(`minesweeper_best_${mode}`, secondsElapsed);
+          newRecord = true;
+          updateBestTimeDisplay();
+        }
+
+        status.textContent = newRecord 
+          ? `🏆 NEW BEST TIME! ${secondsElapsed}s` 
+          : `😎 You Win! Time: ${secondsElapsed}s`;
+        status.style.color = '#16a34a';
+        renderFlagPicker();
+      } else {
+        status.textContent = '💥 Game Over!';
+        status.style.color = '#dc2626';
+
+        for (let r = 0; r < ROWS; r++) {
+          for (let c = 0; c < COLS; c++) {
+            const cell = board[r][c];
+            const el = getCellEl(r, c);
+            if (cell.mine && !cell.flagged) {
+              el.classList.add('game-over-mine');
+              el.textContent = '💣';
+            }
+          }
+        }
+      }
+    }
+
+    function checkWinCondition() {
+      let unrevealedSafeCells = 0;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (!board[r][c].mine && !board[r][c].revealed) {
+            unrevealedSafeCells++;
+          }
+        }
+      }
+      if (unrevealedSafeCells === 0) {
+        triggerGameOver(true);
+      }
+    }
+
+    function getCellEl(r, c) {
+      return document.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+    }
+
+    function resetGame() {
+      initBoard();
+    }
+
+    function toggleSettings() {
+      document.getElementById('side-panel').classList.toggle('open');
+    }
+
+    function changeTheme(theme) {
+      document.body.className = theme === 'classic' ? '' : `theme-${theme}`;
+      localStorage.setItem('minesweeper_theme', theme);
+    }
+
+    function selectFlag(icon) {
+      selectedFlag = icon;
+      localStorage.setItem('minesweeper_flag', icon);
+      renderFlagPicker();
+    }
+
+    function setCustomFlag() {
+      let url = document.getElementById('custom-flag-url').value.trim();
+      
+      if (url && !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('data:image/')) {
+        url = 'https://' + url;
+      }
+
+      if (url) {
+        selectFlag(url);
+      }
+    }
+
+    function updateScoreboardDisplays() {
+      const totalWins = parseInt(localStorage.getItem('minesweeper_total_wins') || '0', 10);
+      const totalCells = parseInt(localStorage.getItem('minesweeper_total_cells') || '0', 10);
+      document.getElementById('total-wins').textContent = totalWins;
+      document.getElementById('total-cells').textContent = totalCells.toLocaleString();
+    }
+
+    function renderFlagPicker() {
+      const totalWins = parseInt(localStorage.getItem('minesweeper_total_wins') || '0', 10);
+      const totalCells = parseInt(localStorage.getItem('minesweeper_total_cells') || '0', 10);
+      const picker = document.getElementById('flag-picker');
+      picker.innerHTML = '';
+
+      FLAGS.forEach(flag => {
+        let isUnlocked = false;
+        let reqLabel = '';
+
+        if (flag.type === 'win') {
+          isUnlocked = totalWins >= flag.req;
+          reqLabel = flag.req === 0 ? 'Default' : `${flag.req} Wins`;
+        } else if (flag.type === 'cell') {
+          isUnlocked = totalCells >= flag.req;
+          reqLabel = `${flag.req} Cells`;
+        }
+
+        const isSelected = selectedFlag === flag.icon;
+
+        const div = document.createElement('div');
+        div.className = `flag-option ${isSelected ? 'selected' : ''} ${!isUnlocked ? 'locked' : ''}`;
+        div.innerHTML = `
+          ${flag.icon}
+          <span class="flag-req">${reqLabel}</span>
+        `;
+
+        if (isUnlocked) {
+          div.onclick = () => selectFlag(flag.icon);
+        }
+
+        picker.appendChild(div);
+      });
+    }
+
+    function loadSettings() {
+      const savedTheme = localStorage.getItem('minesweeper_theme') || 'classic';
+      document.getElementById('theme-select').value = savedTheme;
+      changeTheme(savedTheme);
+      
+      const customUrl = localStorage.getItem('minesweeper_flag') || '';
+      if (customUrl.startsWith('http://') || customUrl.startsWith('https://') || customUrl.startsWith('data:image/')) {
+        document.getElementById('custom-flag-url').value = customUrl;
+      }
+      
+      updateScoreboardDisplays();
+      renderFlagPicker();
+    }
+
+    initBoard();
+  </script>
+</body>
+</html>
